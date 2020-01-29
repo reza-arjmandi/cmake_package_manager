@@ -7,6 +7,7 @@ set(RETRIEVE_BOOST_INCLUDED 1)
 
 include(Util)
 
+
 if (${CMAKE_GENERATOR} MATCHES "Visual Studio 15 2017")
     set(BOOST_BUILD_TOOLSET msvc-14.1)
 elseif (${CMAKE_GENERATOR} MATCHES "Visual Studio 14 2015")
@@ -14,7 +15,7 @@ elseif (${CMAKE_GENERATOR} MATCHES "Visual Studio 14 2015")
 elseif (APPLE)
     set(BOOST_BUILD_TOOLSET darwin)
 elseif(UNIX)
-    set(BOOST_BUILD_TOOLSET gcc-9)
+    set(BOOST_BUILD_TOOLSET gcc)
 endif (${CMAKE_GENERATOR} MATCHES "Visual Studio 15 2017")
 
 if(WIN32)
@@ -82,6 +83,17 @@ ExternalProject_Add_Step(
     COMMAND ${_boost_bootstrap_command}
 )
 
+if (CROSS_COMPILE_FOR_RPI)
+    ExternalProject_Add_Step(
+        boost config_cross_compile
+        COMMENT "Configuring Boost for cross compile..."
+        WORKING_DIRECTORY <SOURCE_DIR>
+        DEPENDEES bootstrap
+        DEPENDERS configure
+        COMMAND sed -i "s/using gcc/using gcc : arm : armv8-rpi3-linux-gnueabihf-g++/" project-config.jam
+    )
+endif()
+
  # By default ZLIB use is disabled for Windows and on Unix enabled if
  # a ZLIB installation is found. We'll enable them to unify across all OS's.
  # See http://www.boost.org/doc/libs/1_50_0/libs/iostreams/doc/installation.html
@@ -96,26 +108,49 @@ if(ZLIB_FOUND)
     )
 endif(ZLIB_FOUND)
 
-# Complete command line options: b2.exe --help
-# http://www.boost.org/build/doc/html/bbv2/overview/invocation.html
-set (_boost_build_common_options
-    -d1 # We won't need a lot debug output from the build
-    -sBOOST_ROOT=<SOURCE_DIR>
 
-    ${_boost_zlib_params}
+if (CROSS_COMPILE_FOR_RPI)
+    # Complete command line options: b2.exe --help
+    # http://www.boost.org/build/doc/html/bbv2/overview/invocation.html
+    set (_boost_build_common_options
+        -d1 # We won't need a lot debug output from the build
+        -sBOOST_ROOT=<SOURCE_DIR>
 
-    # Other layouts place the include directory inside a version suffixed directory
-    # which can't be found by find_package. Since we use only one boost version,
-    # we don't need 'versioned' or 'tagged' layouts.
-    --layout=versioned
-    --without-python
-    --build-dir=<BINARY_DIR>
-    --prefix=<INSTALL_DIR>
-    --build-type=minimal
-        # two configs: debug and release, multithread, shared runtime, static libs
-    toolset=${BOOST_BUILD_TOOLSET}
-    address-model=${_boost_address_model}   # 32/64
-)
+        ${_boost_zlib_params}
+
+        # Other layouts place the include directory inside a version suffixed directory
+        # which can't be found by find_package. Since we use only one boost version,
+        # we don't need 'versioned' or 'tagged' layouts.
+        --layout=versioned
+        --without-python
+        --build-dir=<BINARY_DIR>
+        --prefix=<INSTALL_DIR>
+        --build-type=minimal
+            # two configs: debug and release, multithread, shared runtime, static libs
+    )
+else()
+    # Complete command line options: b2.exe --help
+    # http://www.boost.org/build/doc/html/bbv2/overview/invocation.html
+    set (_boost_build_common_options
+        -d1 # We won't need a lot debug output from the build
+        -sBOOST_ROOT=<SOURCE_DIR>
+
+        ${_boost_zlib_params}
+
+        # Other layouts place the include directory inside a version suffixed directory
+        # which can't be found by find_package. Since we use only one boost version,
+        # we don't need 'versioned' or 'tagged' layouts.
+        --layout=versioned
+        --without-python
+        --build-dir=<BINARY_DIR>
+        --prefix=<INSTALL_DIR>
+        --build-type=minimal
+            # two configs: debug and release, multithread, shared runtime, static libs
+        toolset=${BOOST_BUILD_TOOLSET}
+        address-model=${_boost_address_model}   # 32/64
+    )
+endif()
+
 
 message("_boost_build_common_options: ${_boost_build_common_options}")
 

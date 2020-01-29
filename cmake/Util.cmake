@@ -22,10 +22,28 @@ if (WIN32)
     endif()
     
 elseif (APPLE OR UNIX)
-    set(PROGRAMDATA_ROOT ~/.local)
+    if (CROSS_COMPILE_FOR_RPI)
+        set(PROGRAMDATA_ROOT ${CMAKE_SYSROOT})
+    else()
+        set(PROGRAMDATA_ROOT ~/.local)
+    endif()
 endif()
 
 set(MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
+
+if (CROSS_COMPILE_FOR_RPI)
+
+set(3RDPARTY_DIR_NAME usr CACHE STRING
+    "Base name of the directory. This directory will be created under
+the ProgramData directory and everything is placed there.")
+
+set(PROGRAMDATA_DIR
+    ${PROGRAMDATA_ROOT}/${3RDPARTY_DIR_NAME}
+    CACHE PATH
+    "Path to the base directory within ProgramData where everything (download,
+source, build, install) is stored.")
+
+else()
 
 set(3RDPARTY_DIR_NAME 3rdparty CACHE STRING
     "Base name of the directory. This directory will be created under
@@ -36,6 +54,8 @@ set(PROGRAMDATA_DIR
     CACHE PATH
     "Path to the base directory within ProgramData where everything (download,
 source, build, install) is stored.")
+
+endif()
 
 set(DOWNLOAD_CACHE_DIR
     ${PROGRAMDATA_DIR}/cache
@@ -442,7 +462,7 @@ else()
         # with build targets for retrieving, building, and installing of the
         # package.
         message("Unable to find Util ${PACKAGE_NAME}: Try to build ...")
-        set(_ext_proj_path ${CMAKE_BINARY_DIR}/3rdparty/${PACKAGE_NAME})
+        set(_ext_proj_path ${CMAKE_BINARY_DIR}/${3RDPARTY_DIR_NAME}/${PACKAGE_NAME})
         file(REMOVE_RECURSE ${_ext_proj_path})
 
         list(GET MODIFIED_ARGS 0 _find_package_ver_arg)
@@ -485,6 +505,7 @@ STRING=${_find_package_ver_arg}")
                 -DCMAKE_C_COMPILER:STRING=${CMAKE_C_COMPILER}
                 -DCMAKE_CXX_COMPILER:STRING=${CMAKE_CXX_COMPILER}
                 -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING=${CMAKE_OSX_DEPLOYMENT_TARGET}
+                -DCROSS_COMPILE_FOR_RPI:BOOL=${CROSS_COMPILE_FOR_RPI}
                 ${_set_different_install_prefix}
                 ${_requested_version_cache_setting}
         )
