@@ -399,6 +399,49 @@ option(USE_OLD_FINDPACKAGE
     "Whether to use plain old find_package instead of building packages if not found"
     OFF)
 
+function(get_correct_package_name pkg_name result_var)
+
+    if(pkg_name MATCHES Boost)
+        set(${result_var} Boost PARENT_SCOPE)
+    else()
+        string(TOUPPER ${pkg_name} result)
+        set(${result_var} ${result} PARENT_SCOPE)
+    endif()
+
+endfunction()
+
+function(is_package_include_dirs_acceptable package_name _acceptable_prefix result_var)
+    get_correct_package_name(${package_name} correct_package_name)
+    list(GET ${correct_package_name}_INCLUDE_DIRS 0 _first_include_dir)
+    is_descendant_of_dir(result
+        ${_first_include_dir} ${_acceptable_prefix})
+    set(${result_var} ${result} PARENT_SCOPE)
+endfunction()
+
+
+function(is_correct_package_found package_name target_name acceptable_prefix result_var)
+    
+    set(packages_has_include_dirs GTest GMock Boost)
+
+    if(${package_name}_FOUND OR TARGET ${target_name})
+
+        if(package_name IN_LIST packages_has_include_dirs)
+            is_package_include_dirs_acceptable(
+                ${package_name} 
+                ${acceptable_prefix} 
+                _correct_package)
+        else()
+            set(_correct_package YES)
+        endif()
+        
+    else()
+        unset(_correct_package)
+    endif()
+
+    set(${result_var} ${_correct_package} PARENT_SCOPE)
+
+endfunction()
+
 # We shall use this macro to find a package instead of plain find_package.
 # Its syntax is identical to that of find_package.
 # It calls the find_package and if the package cannot be found, or if the
@@ -445,13 +488,11 @@ else()
         set(_acceptable_prefix ${SM_3RDPARTY_INSTALL_DIR})
     endif ()
 
-    if(${PACKAGE_NAME}_FOUND OR TARGET "${FOG_VERIF_TARGET}")
-        list(GET ${PACKAGE_NAME}_INCLUDE_DIRS 0 _first_include_dir)
-        is_descendant_of_dir(_correct_package
-            ${_first_include_dir} ${_acceptable_prefix})
-    else()
-        unset(_correct_package)
-    endif()
+    is_correct_package_found(
+        ${PACKAGE_NAME} 
+        "${FOG_VERIF_TARGET}" 
+        ${_acceptable_prefix} 
+        _correct_package)
 
     set(PACKAGE_NAME_INCLUDE_DIRS ${${PACKAGE_NAME}_INCLUDE_DIRS})
 
